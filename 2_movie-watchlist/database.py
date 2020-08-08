@@ -10,29 +10,33 @@ connection.row_factory = sqlite3.Row
 
 
 ######################### QUERYS #########################
+
 CREATE_MOVIES_TABLE = """
 
     CREATE TABLE IF NOT EXISTS movies(
         title TEXT, 
-        release_timestamp REAL,
-        watched INTEGER 
+        release_timestamp REAL
         );
 """
 
+CREATE_WATCH_TABLE = """
+
+    CREATE TABLE IF NOT EXISTS watch(
+        watcher_name TEXT, 
+        title REAL
+        );
+"""
+
+
 INSERT_MOVIES_TABLE = """
 
-    INSERT INTO movies (title, release_timestamp, watched) VALUES (?,?, 0);
+    INSERT INTO movies (title, release_timestamp) VALUES (?,?);
 
 """
 
-UPDATE_MOVIE_TABLES = """
+INSERT_WATCH_TABLE = """
 
-    UPDATE TABLE movies 
-
-    SET
-        watched = 1 
-
-    WHERE title = ?;
+    INSERT INTO watch (watcher_name, title) VALUES (?,?);
 
 """
 
@@ -58,11 +62,22 @@ VIEW_WATCHED_MOVIES = """
 
     SELECT
 
-        *
+        watcher_name,
+        title
+        
 
-    FROM movies
+    FROM watch
 
-    WHERE watched = 1;
+    WHERE watcher_name = ?;
+
+"""
+
+DELETE_MOVIES = """
+
+    DELETE FROM movies
+
+    WHERE title = ?;
+
 
 """
 
@@ -72,6 +87,8 @@ def create_tables():
 
     with connection:
         connection.execute(CREATE_MOVIES_TABLE)
+
+        connection.execute(CREATE_WATCH_TABLE)
 
 
 def add_movies(title, release_timestamp):
@@ -103,22 +120,23 @@ def get_movies(upcoming = False):
             return cursor.fetchall()
 
 
-def update_movie(title):
+def watch_movie(watcher_name, title):
 
     with connection:
 
         cursor = connection.cursor()
 
-        cursor.execute(UPDATE_MOVIE_TABLES, (title,))
+        cursor.execute(INSERT_WATCH_TABLE, (watcher_name, title))
 
-        return cursor.fetchall()
+        cursor.execute(DELETE_MOVIES, (title,))
 
-def get_watched_movies():
+
+def get_watched_movies(username):
 
     with connection:
 
         cursor = connection.cursor()
 
-        cursor.execute(VIEW_WATCHED_MOVIES)
+        cursor.execute(VIEW_WATCHED_MOVIES, (username,))
 
         return cursor.fetchall()
