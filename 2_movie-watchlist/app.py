@@ -1,5 +1,6 @@
 from datetime import datetime
 import database
+from app_utils import *
 
 ################### messages menu ###################
 
@@ -9,66 +10,21 @@ menu = """Please select one of the following options:
 3) View all movies.
 4) Add watched movie.
 5) View watched movies.
-6) Exit
+6) Add user.
+7) Search movie.
+8) Exit.
 
 Your selection: """
 
 welcome = "\nWelcome to the watchlist app!\n"
 
-############## funcs ###################
-
-def prompt_add_movie():
-
-    title = input('Enter movie title: ')
-
-    date = input('Enter release date (dd-mm-YYYY): ')
-
-    parsed_date = datetime.strptime(date, '%d-%m-%Y').timestamp()
-
-    database.add_movies(title, parsed_date)
-
-    return print('Movie added!')
-
-
-def prompt_watch_movie():
-
-    username = input('Enter your username:')
-
-    title = input('Enter movie title: ')
-
-    database.watch_movie(username, title)
-
-
-
-def print_watched_movie(username, movies):
-
-    print(f'\n{username} have watched the following movies\n')
-
-    for movie in movies:
-
-        print(f"Title: {movie['title']}\n")
-
-
-def print_movie_list(print_msg, movies):
-
-    print(f'{print_msg}\n')
-
-    for movie in movies:
-
-        date_format = datetime.fromtimestamp(movie['release_timestamp']).strftime('%d-%m-%Y')
-
-        print(f"\nTitle: {movie['title']}\nDate: {date_format}\n")
-
-
-
 ################### app ###################
-
 
 print(welcome)
 
 database.create_tables()
 
-while (user_input:= input(menu)) != '6':
+while (user_input:= input(menu)) != '8':
 
     
     if user_input == '1':
@@ -93,16 +49,20 @@ while (user_input:= input(menu)) != '6':
 
     elif user_input == '5':
 
-        username = input('Enter username: ')
-
-        movies = database.get_watched_movies(username)
-
-        print_watched_movie(username, movies)
+        prompt_watched_movies()
     
     elif user_input == '6':
 
+        prompt_add_user()
+
+    elif user_input == '7':
+
+       prompt_search_movies()
+
+    elif user_input == '8':
+
         pass
-    
+
     else:
 
         print('Invalid entry, please try again')

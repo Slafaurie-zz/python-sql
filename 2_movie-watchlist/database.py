@@ -14,6 +14,7 @@ connection.row_factory = sqlite3.Row
 CREATE_MOVIES_TABLE = """
 
     CREATE TABLE IF NOT EXISTS movies(
+        id INTEGER PRIMARY KEY,
         title TEXT, 
         release_timestamp REAL
         );
@@ -22,21 +23,36 @@ CREATE_MOVIES_TABLE = """
 CREATE_WATCH_TABLE = """
 
     CREATE TABLE IF NOT EXISTS watch(
-        watcher_name TEXT, 
-        title REAL
+        user_username TEXT, 
+        movie_id INTEGER,
+        FOREIGN KEY(user_username) REFERENCES users(username),
+        FOREIGN KEY(movie_id) REFERENCES movies(id)
         );
 """
 
+CREATE_USER_TABLE = """
+
+    CREATE TABLE IF NOT EXISTS users(
+            username TEXT PRIMARY KEY
+            );
+
+"""
 
 INSERT_MOVIES_TABLE = """
 
-    INSERT INTO movies (title, release_timestamp) VALUES (?,?);
+    INSERT INTO movies (id, title, release_timestamp) VALUES (NULL,?,?);
+
+"""
+
+INSERT_USERS_TABLE = """
+
+    INSERT INTO users (username) VALUES (?);
 
 """
 
 INSERT_WATCH_TABLE = """
 
-    INSERT INTO watch (watcher_name, title) VALUES (?,?);
+    INSERT INTO watch (user_username, movie_id) VALUES (?, (SELECT id FROM movies WHERE title = ?));
 
 """
 
@@ -54,6 +70,7 @@ VIEW_UPCOMING_MOVIES = """
     SELECT 
         *
     FROM movies
+
     WHERE release_timestamp > ?;
 
 """
@@ -62,21 +79,31 @@ VIEW_WATCHED_MOVIES = """
 
     SELECT
 
-        watcher_name,
+        user_username,
+        movie_id,
         title
-        
+    
+    FROM watch w
 
-    FROM watch
+    LEFT JOIN movies m
 
-    WHERE watcher_name = ?;
+        ON w.movie_id = m.id
+
+    WHERE  
+        user_username = ?;
 
 """
 
-DELETE_MOVIES = """
+SEARCH_MOVIES = """
 
-    DELETE FROM movies
+    SELECT
 
-    WHERE title = ?;
+        *
+
+    FROM movies
+
+    WHERE title like ?;
+
 
 
 """
@@ -89,6 +116,8 @@ def create_tables():
         connection.execute(CREATE_MOVIES_TABLE)
 
         connection.execute(CREATE_WATCH_TABLE)
+
+        connection.execute(CREATE_USER_TABLE)
 
 
 def add_movies(title, release_timestamp):
@@ -128,7 +157,13 @@ def watch_movie(watcher_name, title):
 
         cursor.execute(INSERT_WATCH_TABLE, (watcher_name, title))
 
-        cursor.execute(DELETE_MOVIES, (title,))
+
+def add_user(username):
+
+    with connection:
+
+        connection.execute(INSERT_USERS_TABLE, (username,))
+
 
 
 def get_watched_movies(username):
@@ -138,5 +173,16 @@ def get_watched_movies(username):
         cursor = connection.cursor()
 
         cursor.execute(VIEW_WATCHED_MOVIES, (username,))
+
+        return cursor.fetchall()
+
+
+def search_movies(title):
+
+    with connection:
+
+        cursor = connection.cursor()
+
+        cursor.execute(SEARCH_MOVIES, (f'%{title}%',))
 
         return cursor.fetchall()
