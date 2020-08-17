@@ -1,79 +1,83 @@
 import os
 import psycopg2
-from psycopg2.errors import DivisionByZero
-from dotenv import load_dotenv
+from typing import List, Tuple
+import random
 import database
+from connection_pool import get_connection
+from poll import Poll
+from option import Option
 
-
-DATABASE_PROMPT = "Enter the DATABASE_URI value or leave empty to load from .env file: "
 
 MENU_PROMPT = """-- Menu --
 
-1) Create new poll
-2) List open polls
-3) Vote on a poll
-4) Show poll votes
-5) Select a random winner from a poll option
-6) Exit
+    1) Create new poll
+    2) List open polls
+    3) Vote on a poll
+    4) Show poll votes
+    5) Select a random winner from a poll option
+    6) Exit
 
-Enter your choice: """
+    Enter your choice: """
 
 NEW_OPTION_PROMPT = "Enter new option text (or leave empty to stop adding options): "
 
 
-def prompt_create_poll(connection):
+def prompt_create_poll():
     poll_title = input("Enter poll title: ")
     poll_owner = input("Enter poll owner: ")
-    options = []
+    poll = Poll(title = poll_title, owner = poll_owner)
+    poll.save()
 
     while (new_option := input(NEW_OPTION_PROMPT)):
-        options.append(new_option)
-
-    database.create_poll(connection, poll_title, poll_owner, options)
+        poll.add_option(new_option)
 
 
-def list_open_polls(connection):
-    polls = database.get_polls(connection)
-
-    for _id, title, owner in polls:
-        print(f"{_id}: {title} (created by {owner})")
+def list_open_polls():
+    for poll in Poll.get_all():
+        print(f"{poll.id}: {poll.title} (created by {poll.owner})")
 
 
-def prompt_vote_poll(connection):
+def prompt_vote_poll():
     poll_id = int(input("Enter poll would you like to vote on: "))
 
-    poll_options = database.get_poll_details(connection, poll_id)
-    _print_poll_options(poll_options)
+    _print_poll_options(Poll.get(poll_id).options)
 
     option_id = int(input("Enter option you'd like to vote for: "))
     username = input("Enter the username you'd like to vote as: ")
-    database.add_poll_vote(connection, username, option_id)
+    
+    Option.get(option_id).vote(username)
 
 
-def _print_poll_options(poll_with_options):
-    for option in poll_with_options:
-        print(f"{option[3]}: {option[5]}")
+def _print_poll_options(options: List[Option]):
+    for option in options:
+        print(f"{option.id}: {option.option_text}")
 
 
-def show_poll_votes(connection):
+def show_poll_votes():
     poll_id = int(input("Enter poll you would like to see votes for: "))
+    options = Poll.get(poll_id).options
+    votes = [len(option.get_votes) for option in options]
+    total_votes = sum(votes)
+
     try:
-        # This gives us count and percentage of votes for each option in a poll
-        poll_and_votes = database.get_poll_and_vote_results(connection, poll_id)
-    except DivisionByZero:
+        for option, vote in zip(options, votes):
+            percentage = vote / total_votes * 100.0
+            print(f"{option.option_text} got {vote} votes ({percentage:.2f}% of total)")
+
+    except ZeroDivisionError:
         print("No votes yet cast for this poll.")
-    else:
-        for _id, option_text, count, percentage in poll_and_votes:
-            print(f"{option_text} got {count} votes ({percentage:.2f}% of total)")
+    
 
 
-def randomize_poll_winner(connection):
+def randomize_poll_winner():
     poll_id = int(input("Enter poll you'd like to pick a winner for: "))
-    poll_options = database.get_poll_details(connection, poll_id)
-    _print_poll_options(poll_options)
+    _print_poll_options(Poll.get(poll_id).options)
 
     option_id = int(input("Enter which is the winning option, we'll pick a random winner from voters: "))
-    winner = database.get_random_poll_vote(connection, option_id)
+    votes = Option.get(option_id).get_votes
+
+    winner = random.choice(votes)
+
     print(f"The randomly selected winner is {winner[0]}.")
 
 
@@ -87,17 +91,13 @@ MENU_OPTIONS = {
 
 
 def menu():
-    database_uri = input(DATABASE_PROMPT)
-    if not database_uri:
-        load_dotenv()
-        database_uri = os.environ["DATABASE_URL"]
-
-    connection = psycopg2.connect(database_uri)
-    database.create_tables(connection)
+    with get_connection() as connection:
+        database.create_tables(connection)
+   
 
     while (selection := input(MENU_PROMPT)) != "6":
         try:
-            MENU_OPTIONS[selection](connection)
+            MENU_OPTIONS[selection]()
         except KeyError:
             print("Invalid input selected. Please try again.")
 
